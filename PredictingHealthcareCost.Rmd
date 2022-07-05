@@ -1,0 +1,108 @@
+---
+title: "Logistic Regression - Predicting Diabetes Diagnosis"
+author: "Teja Tammali"
+subtitle: "Date: May 13, 2022"
+output: html_document
+---
+## Data Cleaning/Preparation
+In order to predict a diabetes diagnosis, the follow was done. I read in four different libraries which include, readxl, dplyr, ggplot2, and ggpubr. These libraries are to read in the file, conduct data manipulation, create graphs/plots, and read in a correlation analysis. After reading in the dataset, diabetes.csv, I created a variables called height.si and weight.si that converts the height/weight vars to SI units. After converting them to proper units, I calculated the BMI and proceeded to split the BMI numbers into 4 different categories, in addition to placing NA values. For additional data cleaning, I proceeded to record the insurance and smoking vars to reflect proper categories. I also included checks to make sure the recoded vars are correct.
+```{r warning=FALSE, message=FALSE, results="hide"}
+# insert import & data cleaning code here
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+
+setwd("/Users/tejat/Desktop/452/mini project 4")
+
+#Import the diabetes.csv file
+dia = read.csv("diabetes.csv")
+
+#Create a variable called height.si that is the height variable converted to SI units by multiplying the height variable by 0.0254 
+dia <- mutate(dia, height.si = height * .0254)
+
+#Create a variable called weight.si that is the weight variable converted to SI units by multiplying the weight variable by 0.453592
+dia <- mutate(dia, weight.si = weight * .453592)
+
+#Using the new SI unit weight and height variables (height.si & weight.si), calculate BMI using the following formula: BMI = (weight.si)/(height.si^2)
+dia <- mutate(dia, BMI = (weight.si)/(height.si^2))
+
+
+#Create a categorical BMI variable named bmi_categorized using the following conditions:
+  #bmi < 18.5 = "underweight"
+  #bmi >= 18.5 & bmi <= 25 = "normal"
+  #bmi > 25 & bmi <= 30 = "overweight"
+  #bmi > 30 =  "obese"
+  #All other values = NA
+dia <- mutate(dia, bmi_categorized = ifelse(BMI < 18.5, "Underweight",
+                        ifelse(BMI >= 18.5 & BMI <= 25, "Normal",
+                                ifelse(BMI > 25 & BMI <= 30, "Overweight",
+                                        ifelse(BMI > 30, "Obese",
+                        NA)))))
+
+#Recode the insurance variable to reflect the value labels (0=none, 1=government, 2=private)
+dia <- mutate(dia, insurance = ifelse(insurance == 2, "private",
+                        ifelse(insurance == 1, "government",
+                               ifelse(insurance == 0, "none",
+                        NA))))
+
+#Recode the smoking variable to reflect the value labels (1=current, 2=never and 3=ex-smoker)
+dia <- mutate(dia, smoking = ifelse(smoking == 3, "ex-smoker",
+                        ifelse(smoking == 2, "never",
+                               ifelse(smoking == 1, "current",
+                        NA))))
+
+#Include checks that show each of the new/recoded variables have been correctly coded
+table(dia$insurance)
+table(dia$smoking)
+```
+
+
+## Exploratory Data Analysis
+The number of observations is 403 with 28 variables. The percentages of individuals who are obese is 38.3%, who are female is 58.1%, or have diabetes is 15.4%. The average age is 47 and the average BMI is 28.8 units.
+```{r warning=FALSE, message=FALSE, results="hide"}
+#Find the number of observations
+dim(dia)
+
+#Find the percentage of observations in each bmi_categorized category
+round(prop.table(table(dia$bmi_categorized)), 3) * 100
+
+#Find the percentage of observations in each gender category
+round(prop.table(table(dia$gender)), 3) * 100
+
+#Find the percentage of observations in each diabetes category
+round(prop.table(table(dia$dm)), 3) * 100
+
+#Find the average age of individuals in the dataset
+mean(dia$age)
+
+#Find the average BMI of individuals in the dataset
+mean(dia$BMI, na.rm=TRUE)
+```
+
+
+## Data Visualization
+Figures 1 and 2 display simply the frequency of each labeled category of the insurance and smoking vars. As shown, govt insurance group is the highest while none is the lowest, and never smoking is the highest while currently ex-smoker beats the lowest. As shown in figure 3, most of the points lay between a BMI 20-35 with cholesterol levels between 150 to 250 units. The regression line increases linearly as well with a R value of .09 and p = .088. Figure 4 shows the frequency of age distribution as it can be concluded that the average age is around 47.
+```{r warning=FALSE, message=FALSE}
+# Create a plot/graph that shows the frequency of each labeled category of the insurance variable
+ggplot(dia, aes(insurance)) + geom_bar() + labs(title = "Figure 1: Frequency of each labeled category of the Insurance Variable", x = "Insurance Group")
+
+# Create a plot/graph that shows the frequency of each labeled category of the smoking variable
+ggplot(dia, aes(smoking)) + geom_bar() + labs(title = "Figure 2: Frequency of each labeled category of the Smoking Variable", x = "Smoking Group")
+
+#Create a scatter plot that shows the relationship between BMI (independent variable) and cholesterol (dependent variable)
+  #Include a regression line in your plot
+  #Calculate the correlation coefficient
+ggplot(dia, aes(BMI, chol)) + geom_point() + stat_cor(p.accuracy = 0.001, r.accuracy = 0.01) + stat_smooth(method = "lm", formula = y ~ x, geom = "smooth") + labs(title = "Figure 3: Relationship between Body Mass Index and cholesterol levels", x = "Body Mass Index", y = "Cholesterol Levels")
+
+#Create a histogram of the age variable, using a binwidth of 5
+hist(dia$age, bin = 5, main = "Frequency of Age Distribution", xlab = "Age")
+```
+
+## Logistic Regression Results
+For every 1 person with diabetes, age decreases by -0.399198 units, BMI increases by 1.294947 units, and gender decreases by -0.869326.
+```{r warning=FALSE, message=FALSE, results="hide"}
+#Build a logistic regression model with diabetes (dm) as the outcome variable, and age, gender, and BMI as the predictors. Remember to treat gender as a factor in the model
+lm(forumla = dm ~ age + BMI + factor(gender), data = dia)
+```
+
